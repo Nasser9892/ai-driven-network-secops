@@ -11,7 +11,6 @@ provider "aws" {
   region = var.aws_region
 }
 
-# VPC
 resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr
   enable_dns_hostnames = true
@@ -23,7 +22,6 @@ resource "aws_vpc" "main" {
   }
 }
 
-# Internet Gateway
 resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
 
@@ -33,7 +31,6 @@ resource "aws_internet_gateway" "main" {
   }
 }
 
-# Public Subnet
 resource "aws_subnet" "public" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = "10.0.1.0/24"
@@ -46,67 +43,17 @@ resource "aws_subnet" "public" {
   }
 }
 
-# Private Subnet - Workloads
-resource "aws_subnet" "workloads" {
+resource "aws_subnet" "private" {
   vpc_id            = aws_vpc.main.id
   cidr_block        = "10.0.2.0/24"
   availability_zone = "${var.aws_region}a"
 
   tags = {
-    Name    = "${var.project_name}-workloads"
+    Name    = "${var.project_name}-private"
     Project = var.project_name
   }
 }
 
-# Private Subnet - Security (Zeek + ML)
-resource "aws_subnet" "security" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.3.0/24"
-  availability_zone = "${var.aws_region}a"
-
-  tags = {
-    Name    = "${var.project_name}-security"
-    Project = var.project_name
-  }
-}
-
-# Private Subnet - AI (vLLM + ChromaDB)
-resource "aws_subnet" "ai" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.4.0/24"
-  availability_zone = "${var.aws_region}a"
-
-  tags = {
-    Name    = "${var.project_name}-ai"
-    Project = var.project_name
-  }
-}
-
-# Private Subnet - Management (n8n + Wazuh + Dashboard)
-resource "aws_subnet" "management" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.5.0/24"
-  availability_zone = "${var.aws_region}a"
-
-  tags = {
-    Name    = "${var.project_name}-management"
-    Project = var.project_name
-  }
-}
-
-# Private Subnet - Data (Elasticsearch + S3 Endpoint)
-resource "aws_subnet" "data" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.6.0/24"
-  availability_zone = "${var.aws_region}a"
-
-  tags = {
-    Name    = "${var.project_name}-data"
-    Project = var.project_name
-  }
-}
-
-# Route Table - Public
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
 
@@ -121,7 +68,6 @@ resource "aws_route_table" "public" {
   }
 }
 
-# Associate Public Subnet with Public Route Table
 resource "aws_route_table_association" "public" {
   subnet_id      = aws_subnet.public.id
   route_table_id = aws_route_table.public.id
