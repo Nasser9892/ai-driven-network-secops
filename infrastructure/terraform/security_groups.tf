@@ -41,26 +41,34 @@ resource "aws_security_group" "workloads" {
   }
 }
 
-# Security Group - Zeek (passive listener, no inbound except SSH from management)
+# Security Group - Zeek (passive listener)
 resource "aws_security_group" "zeek" {
   name        = "${var.project_name}-zeek-sg"
-  description = "Zeek engine - receives mirrored traffic, no direct inbound"
+  description = "Zeek engine - receives mirrored traffic via VXLAN"
   vpc_id      = aws_vpc.main.id
 
   ingress {
-    description = "SSH from management layer only"
+    description = "SSH from anywhere (demo only)"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["10.0.1.0/24"]
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "VXLAN - mirrored traffic from VPC Traffic Mirroring"
+    from_port   = 4789
+    to_port     = 4789
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
-    description = "Send logs to ML engine and Wazuh"
+    description = "Allow all outbound"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = ["10.0.1.0/24"]
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   tags = {
@@ -76,15 +84,15 @@ resource "aws_security_group" "detection" {
   vpc_id      = aws_vpc.main.id
 
   ingress {
-    description = "SSH from public subnet"
+    description = "SSH from anywhere (demo only)"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["10.0.1.0/24"]
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   ingress {
-    description = "Wazuh API from public subnet"
+    description = "Wazuh API"
     from_port   = 55000
     to_port     = 55000
     protocol    = "tcp"
@@ -96,7 +104,7 @@ resource "aws_security_group" "detection" {
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
-    cidr_blocks = ["10.0.1.0/24"]
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
@@ -119,11 +127,11 @@ resource "aws_security_group" "ai" {
   vpc_id      = aws_vpc.main.id
 
   ingress {
-    description = "SSH from public subnet"
+    description = "SSH from anywhere (demo only)"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["10.0.1.0/24"]
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   ingress {
