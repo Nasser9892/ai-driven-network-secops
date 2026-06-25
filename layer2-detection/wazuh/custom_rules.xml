@@ -1,0 +1,39 @@
+<!-- Local rules -->
+<!-- Copyright (C) 2015, Wazuh Inc. -->
+<group name="zeek,network,">
+
+  <!-- Port Scan Detection — MITRE T1046 -->
+  <rule id="100001" level="10">
+    <if_sid>0</if_sid>
+    <match>conn_state</match>
+    <match>REJ</match>
+    <description>Zeek: Rejected connection detected — possible port scan</description>
+    <mitre>
+      <id>T1046</id>
+    </mitre>
+    <group>network_scan,</group>
+  </rule>
+
+  <!-- Zeek Notice — Port Scan -->
+  <rule id="100002" level="12">
+    <if_sid>0</if_sid>
+    <match>Scan::Port_Scan</match>
+    <description>Zeek Notice: Port Scan detected</description>
+    <mitre>
+      <id>T1046</id>
+    </mitre>
+    <group>network_scan,</group>
+  </rule>
+
+  <!-- Zeek Weird — Protocol Violation -->
+  <rule id="100003" level="8">
+    <if_sid>0</if_sid>
+    <location>weird.log</location>
+    <description>Zeek Weird: Protocol violation detected</description>
+    <mitre>
+      <id>T1071</id>
+    </mitre>
+    <group>anomaly,</group>
+  </rule>
+
+</group>
