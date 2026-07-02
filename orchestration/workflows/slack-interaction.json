@@ -99,7 +99,7 @@
     },
     {
       "parameters": {
-        "jsCode": "console.log('Admin rejected block for IP:', $json.src_ip);\nreturn [{ json: { status: 'rejected', src_ip: $json.src_ip, timestamp: new Date().toISOString() } }];"
+        "jsCode": "const record = {\n  alert_id: $json.alert_id,\n  src_ip: $json.src_ip,\n  admin_id: $json.user?.id || 'unknown',\n  reason: $json.reason || 'No reason provided',\n  timestamp: new Date().toISOString()\n};\n\nawait $http.request({\n  method: 'POST',\n  url: 'http://127.0.0.1:5680/reject',\n  body: record,\n  json: true\n});\n\nreturn [{ json: record }];"
       },
       "id": "6863ff07-5267-4a0d-bbfc-1fc29939dbf4",
       "name": "Log Rejection",
@@ -247,7 +247,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "89f80d9f-c35f-4eb2-8afa-1707f0248d15",
+  "versionId": "5fe2a67f-a27e-4cd0-b7e2-cce7ff8451b8",
   "meta": {
     "instanceId": "cb2f05f1ed7f73af176955bded1a2240b297adc6a19309a0eace8fe2b99a8246"
   },
