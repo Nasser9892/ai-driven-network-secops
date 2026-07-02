@@ -31,7 +31,6 @@ def block_ip():
             reason=reason,
             mitre=data.get('mitre', 'unknown'),
         )
-        # success reflects independent AWS verification, never a return code
         success = bool(result.get('verified'))
         audit_entry = {
             'timestamp': datetime.utcnow().isoformat(),
@@ -127,6 +126,25 @@ def escalate():
         return jsonify({'success': True, 'message_id': resp.get('MessageId')})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/reject', methods=['POST'])
+def reject():
+    data = request.get_json()
+    record = {
+        'timestamp': data.get('timestamp', datetime.utcnow().isoformat()),
+        'action': 'reject',
+        'src_ip': data.get('src_ip'),
+        'alert_id': data.get('alert_id'),
+        'admin_id': data.get('admin_id', 'unknown'),
+        'reason': data.get('reason', 'No reason provided'),
+        'triggered_by': 'admin_rejection',
+        'is_auto_action': False,
+        'success': True
+    }
+    os.makedirs(os.path.dirname(AUDIT_LOG), exist_ok=True)
+    with open(AUDIT_LOG, 'a') as f:
+        f.write(json.dumps(record) + '\n')
+    return jsonify({'success': True})
 
 
 if __name__ == '__main__':
