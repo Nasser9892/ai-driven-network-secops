@@ -1,0 +1,256 @@
+{
+  "name": "04 — Slack Interaction",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "slack-interaction",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "058dda52-d5e3-478a-9201-73d70deae3c5",
+      "name": "Receive Slack Action",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -656,
+        112
+      ],
+      "webhookId": "9da2a47d-22cf-47de-a3c7-dba317af91ab"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "options": {}
+      },
+      "id": "68963cd9-7150-47df-9efd-9b991d751956",
+      "name": "Respond to Slack",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -656,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Slack interactive payload\nconst body = $input.first().json.body;\nconst payload = JSON.parse(body.payload);\nconst action = payload.actions[0];\nconst value = JSON.parse(action.value);\n\nreturn [{\n  json: {\n    action: value.action,\n    alert_id: value.alert_id,\n    src_ip: value.src_ip,\n    block_duration_hours: value.block_duration_hours || 2,\n    risk_level: value.risk_level || 'HIGH',\n    threat_type: value.threat_type || 'Unknown',\n    mitre: value.mitre || 'Unknown'\n  }\n}];"
+      },
+      "id": "14039551-95ad-471e-bf90-b7528cb292bf",
+      "name": "Parse Slack Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -448,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "condition-approve",
+              "leftValue": "={{ $('Parse Slack Payload').first().json.action }}",
+              "rightValue": "approve",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c085b67d-0ea0-4f5f-83e4-985c2f0abc3b",
+      "name": "Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -16,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://10.0.1.90:5678/webhook/firewall-enforce",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "=={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "e07fc3ea-e88e-437b-9c84-3a8cbfc7a74e",
+      "name": "Trigger Firewall Enforcement",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        496,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "console.log('Admin rejected block for IP:', $json.src_ip);\nreturn [{ json: { status: 'rejected', src_ip: $json.src_ip, timestamp: new Date().toISOString() } }];"
+      },
+      "id": "6863ff07-5267-4a0d-bbfc-1fc29939dbf4",
+      "name": "Log Rejection",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        496,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5680/flag",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"alert_id\": \"{{ $json.alert_id }}\",\n  \"action\": \"{{ $json.action }}\",\n  \"src_ip\": \"{{ $json.src_ip }}\",\n  \"block_duration_hours\": {{ $json.block_duration_hours }},\n  \"risk_level\": \"{{ $json.risk_level }}\",\n  \"threat_type\": \"{{ $json.threat_type }}\",\n  \"mitre\": \"{{ $json.mitre }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -240,
+        112
+      ],
+      "id": "60ba61de-32ad-4f7a-a5b3-90b7c580b4ae",
+      "name": "Save Flag"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $('Parse Slack Payload').first().json;\nreturn [{\n  json: {\n    src_ip: data.src_ip,\n    block_duration_hours: data.block_duration_hours,\n    reason: 'Admin approved block via Slack',\n    risk_level: data.risk_level,\n    threat_type: data.threat_type,\n    mitre: data.mitre,\n    anomaly_score: 0,\n    triggered_by: 'admin_approval'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        192,
+        16
+      ],
+      "id": "e7c7c21a-bb64-492d-b80d-744df9a3fe34",
+      "name": "Prepare Block"
+    }
+  ],
+  "pinData": {
+    "Receive Slack Action": [
+      {
+        "json": {
+          "headers": {
+            "user-agent": "Slackbot 1.0 (+https://api.slack.com/robots)",
+            "accept-encoding": "gzip,deflate",
+            "accept": "application/json,*/*",
+            "x-slack-signature": "v0=8d55f732d9bac1a89723ba6fbef0eb48bdf5da12579574ba3b82b7d4725fb448",
+            "x-slack-request-timestamp": "1782656523",
+            "content-length": "4588",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "52.63.101.33:5678",
+            "cache-control": "max-age=259200",
+            "connection": "keep-alive"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "payload": "{\"type\":\"block_actions\",\"user\":{\"id\":\"U0BCXQRR8TD\",\"username\":\"naser.ronaghi\",\"name\":\"naser.ronaghi\",\"team_id\":\"T0BD7QF9BGC\"},\"api_app_id\":\"A0BCXS1PT3M\",\"token\":\"BAzaw9v0Vufs3Tyx1EDpxDtG\",\"container\":{\"type\":\"message\",\"message_ts\":\"1782656514.445519\",\"channel_id\":\"C0BD462PW66\",\"is_ephemeral\":false},\"trigger_id\":\"11470002511588.11449831317556.06e42a15b802ba774f5d2ec0982377f6\",\"team\":{\"id\":\"T0BD7QF9BGC\",\"domain\":\"secops-demo\"},\"enterprise\":null,\"is_enterprise_install\":false,\"channel\":{\"id\":\"C0BD462PW66\",\"name\":\"security-alerts\"},\"message\":{\"user\":\"U0BD47QR8G2\",\"type\":\"message\",\"ts\":\"1782656514.445519\",\"bot_id\":\"B0BD638LJDP\",\"app_id\":\"A0BCXS1PT3M\",\"text\":\"Security Alert: HIGH \\u2014 Port Scan from 203.0.113.50\",\"team\":\"T0BD7QF9BGC\",\"blocks\":[{\"type\":\"header\",\"block_id\":\"\\/MMkd\",\"text\":{\"type\":\"plain_text\",\"text\":\":large_orange_circle: HIGH ALERT \\u2014 Action Required\",\"emoji\":true}},{\"type\":\"section\",\"block_id\":\"LjdYa\",\"fields\":[{\"type\":\"mrkdwn\",\"text\":\"*Threat Type:*\\nPort Scan\",\"verbatim\":false},{\"type\":\"mrkdwn\",\"text\":\"*MITRE:*\\nT1046\",\"verbatim\":false},{\"type\":\"mrkdwn\",\"text\":\"*Source IP:*\\n203.0.113.50\",\"verbatim\":false},{\"type\":\"mrkdwn\",\"text\":\"*Confidence:*\\n90%\",\"verbatim\":false},{\"type\":\"mrkdwn\",\"text\":\"*Anomaly Score:*\\nN\\/A\",\"verbatim\":false},{\"type\":\"mrkdwn\",\"text\":\"*Time (AEST):*\\n2026-06-28 23:30:00 AEST\",\"verbatim\":false}]},{\"type\":\"section\",\"block_id\":\"r2mFu\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"*Analysis:*\\nExternal port scan detected\",\"verbatim\":false}},{\"type\":\"section\",\"block_id\":\"HuOEu\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"*Recommended:* Block IP for *6 hours*\\n:stopwatch: Auto-action in *2 min* if no response.\",\"verbatim\":false}},{\"type\":\"actions\",\"block_id\":\"alert_1782656514274\",\"elements\":[{\"type\":\"button\",\"action_id\":\"approve_block\",\"text\":{\"type\":\"plain_text\",\"text\":\":white_check_mark: Approve Block\",\"emoji\":true},\"style\":\"primary\",\"value\":\"{\\\"alert_id\\\":\\\"alert_1782656514274\\\",\\\"action\\\":\\\"approve\\\",\\\"src_ip\\\":\\\"203.0.113.50\\\",\\\"block_duration_hours\\\":6,\\\"risk_level\\\":\\\"HIGH\\\",\\\"threat_type\\\":\\\"Port Scan\\\",\\\"mitre\\\":\\\"T1046\\\"}\"},{\"type\":\"button\",\"action_id\":\"reject_block\",\"text\":{\"type\":\"plain_text\",\"text\":\":x: Reject\",\"emoji\":true},\"style\":\"danger\",\"value\":\"{\\\"alert_id\\\":\\\"alert_1782656514274\\\",\\\"action\\\":\\\"reject\\\",\\\"src_ip\\\":\\\"203.0.113.50\\\",\\\"risk_level\\\":\\\"HIGH\\\"}\"}]}]},\"state\":{\"values\":{}},\"response_url\":\"https:\\/\\/hooks.slack.com\\/actions\\/T0BD7QF9BGC\\/11464272027062\\/mvP5ihq80FxI298nNltd06dD\",\"actions\":[{\"action_id\":\"approve_block\",\"block_id\":\"alert_1782656514274\",\"text\":{\"type\":\"plain_text\",\"text\":\":white_check_mark: Approve Block\",\"emoji\":true},\"value\":\"{\\\"alert_id\\\":\\\"alert_1782656514274\\\",\\\"action\\\":\\\"approve\\\",\\\"src_ip\\\":\\\"203.0.113.50\\\",\\\"block_duration_hours\\\":6,\\\"risk_level\\\":\\\"HIGH\\\",\\\"threat_type\\\":\\\"Port Scan\\\",\\\"mitre\\\":\\\"T1046\\\"}\",\"style\":\"primary\",\"type\":\"button\",\"action_ts\":\"1782656523.675051\"}]}"
+          },
+          "webhookUrl": "http://0.0.0.0:5678/webhook/slack-interaction",
+          "executionMode": "production"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Receive Slack Action": {
+      "main": [
+        [
+          {
+            "node": "Parse Slack Payload",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Respond to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Slack Payload": {
+      "main": [
+        [
+          {
+            "node": "Save Flag",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approved?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Block",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Rejection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Flag": {
+      "main": [
+        [
+          {
+            "node": "Approved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Block": {
+      "main": [
+        [
+          {
+            "node": "Trigger Firewall Enforcement",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "89f80d9f-c35f-4eb2-8afa-1707f0248d15",
+  "meta": {
+    "instanceId": "cb2f05f1ed7f73af176955bded1a2240b297adc6a19309a0eace8fe2b99a8246"
+  },
+  "id": "D4iUWY0izh4KKASu",
+  "tags": []
+}

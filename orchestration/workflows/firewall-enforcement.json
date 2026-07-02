@@ -1,0 +1,251 @@
+{
+  "name": "03 — Firewall Enforcement",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "firewall-enforce",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "966fb314-e951-4bd8-b4e5-5b34e783300a",
+      "name": "Receive Enforcement Request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -656,
+        112
+      ],
+      "webhookId": "e8633fcc-ea91-48e9-a7fc-d8c1a00e9c9f"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5680/block",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "src_ip",
+              "value": "={{ $json.src_ip || $json.body.src_ip }}"
+            },
+            {
+              "name": "block_duration_hours",
+              "value": "={{ $json.block_duration_hours || $json.body.block_duration_hours || 2 }}"
+            },
+            {
+              "name": "reason",
+              "value": "={{ $json.threat_type || $json.body.threat_type || 'Security Alert' }} — {{ $json.mitre || $json.body.mitre || 'Unknown' }}"
+            },
+            {
+              "name": "risk_level",
+              "value": "={{ $json.risk_level || $json.body.risk_level }}"
+            },
+            {
+              "name": "threat_type",
+              "value": "={{ $json.threat_type || $json.body.threat_type }}"
+            },
+            {
+              "name": "mitre",
+              "value": "={{ $json.mitre || $json.body.mitre }}"
+            },
+            {
+              "name": "anomaly_score",
+              "value": "={{ $json.anomaly_score || $json.body.anomaly_score || 0 }}"
+            },
+            {
+              "name": "triggered_by",
+              "value": "={{ $json.action || $json.body.action || 'admin_approval' }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "ee4cdcfb-0b32-4310-bf9c-d904afd0a5ab",
+      "name": "Block IP (boto3)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -240,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const blockResult = $input.first().json;\nconst requestData = $('Receive Enforcement Request').first().json.body || $('Receive Enforcement Request').first().json;\nconst isAutoAction = (requestData.action === 'auto_escalate');\n\nreturn [{\n  json: {\n    success: blockResult.success,\n    src_ip: requestData.src_ip,\n    block_duration_hours: requestData.block_duration_hours || 2,\n    risk_level: requestData.risk_level,\n    threat_type: requestData.threat_type,\n    mitre: requestData.mitre,\n    anomaly_score: requestData.anomaly_score,\n    analysis_summary: requestData.analysis_summary || '',\n    timestamp_aest: requestData.timestamp_aest || new Date().toISOString(),\n    triggered_by: isAutoAction ? 'auto_escalation' : 'admin_approval',\n    reason: requestData.reason || 'Admin approved',\n    is_auto_action: isAutoAction\n  }\n}];"
+      },
+      "id": "f67bbd32-72c1-45ef-966f-69f02cf553a1",
+      "name": "Parse Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -16,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/chat.postMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer YOUR_SLACK_BOT_TOKEN"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "channel",
+              "value": "C0BD462PW66"
+            },
+            {
+              "name": "text",
+              "value": "=✅ *IP Blocked* — `{{ $json.src_ip }}` blocked for *{{ $json.block_duration_hours }}h*\n• Threat: {{ $json.threat_type }} ({{ $json.mitre }})\n• Risk: {{ $json.risk_level }} | Action by: {{ $json.triggered_by }}\n• Time: {{ $json.timestamp_aest }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "dca9e127-2e07-465b-83de-8930ec4d51b8",
+      "name": "Slack Confirmation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        208,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5680/escalate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"src_ip\": \"{{ $('Parse Result').first().json.src_ip }}\",\n  \"subject\": \"SecOps Escalation — {{ $('Parse Result').first().json.risk_level }} — {{ $('Parse Result').first().json.src_ip }}\",\n  \"body\": \"Automated escalation. IP {{ $('Parse Result').first().json.src_ip }} was auto-blocked. Threat: {{ $('Parse Result').first().json.threat_type }} | MITRE: {{ $('Parse Result').first().json.mitre }} | Risk: {{ $('Parse Result').first().json.risk_level }}\",\n  \"risk_level\": \"{{ $('Parse Result').first().json.risk_level }}\",\n  \"threat_type\": \"{{ $('Parse Result').first().json.threat_type }}\",\n  \"mitre\": \"{{ $('Parse Result').first().json.mitre }}\",\n  \"triggered_by\": \"auto_escalation\"\n}",
+        "options": {}
+      },
+      "id": "acdd0b3e-fdfa-4d42-bc14-67d98cdeb431",
+      "name": "Send Escalation Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        208,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"status\": \"enforced\", \"src_ip\": \"{{ $('Parse Result').first().json.src_ip }}\", \"block_duration_hours\": {{ $('Parse Result').first().json.block_duration_hours }} }",
+        "options": {}
+      },
+      "id": "4e762d72-303b-4d7b-9d5f-33e2ede443b8",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        432,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nconst raw = $json.body;\nconst parsed = typeof raw === 'string' ? JSON.parse(raw.replace(/^=/, '')) : raw;\nreturn { json: parsed };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -448,
+        112
+      ],
+      "id": "43c5d519-17d9-4196-a06c-aa030c40f942",
+      "name": "Parse Request"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Receive Enforcement Request": {
+      "main": [
+        [
+          {
+            "node": "Parse Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Block IP (boto3)": {
+      "main": [
+        [
+          {
+            "node": "Parse Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Result": {
+      "main": [
+        [
+          {
+            "node": "Slack Confirmation",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Escalation Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack Confirmation": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Request": {
+      "main": [
+        [
+          {
+            "node": "Block IP (boto3)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "db053f38-d0ab-4a5f-aa3e-bc03129e4a35",
+  "meta": {
+    "instanceId": "cb2f05f1ed7f73af176955bded1a2240b297adc6a19309a0eace8fe2b99a8246"
+  },
+  "id": "a1YgU4PThNv38Ni7",
+  "tags": []
+}

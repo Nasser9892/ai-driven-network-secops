@@ -1,0 +1,249 @@
+{
+  "name": "01 — Alert Triage",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "secops-alert",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "32680175-236f-42ed-b0c9-bc4430148de2",
+      "name": "Receive Alert",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1104,
+        144
+      ],
+      "webhookId": "d65e69ab-57e0-45c4-a3cc-a85c691c7661"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Sanitize incoming alert — remove prompt injection patterns\nconst alert = $input.first().json.body || $input.first().json;\n\nconst raw = JSON.stringify(alert);\n\n// Truncate and sanitize\nlet sanitized = raw.substring(0, 3000);\nsanitized = sanitized.replace(/IGNORE PREVIOUS/gi, '[FILTERED]');\nsanitized = sanitized.replace(/SYSTEM:/gi, '[FILTERED]');\nsanitized = sanitized.replace(/You are now/gi, '[FILTERED]');\n\n// Mask internal IPs\nsanitized = sanitized.replace(/10\\.\\d+\\.\\d+\\.\\d+/g, '[INTERNAL_IP]');\n\nreturn [{\n  json: {\n    original_alert: alert,\n    sanitized_log: sanitized,\n    src_ip: alert.src_ip || 'unknown',\n    anomaly_score: alert.anomaly_score || 0,\n    alert_type: alert.alert_type || 'unknown',\n    mitre: alert.mitre || 'unknown',\n    timestamp: alert.timestamp || new Date().toISOString()\n  }\n}];"
+      },
+      "id": "1c6e3f8d-6b9f-487f-a377-2248f909ee08",
+      "name": "Sanitize Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -880,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://10.0.1.90:11434/api/generate",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "llama3.1:8b"
+            },
+            {
+              "name": "prompt",
+              "value": "=You are a senior SOC analyst. Analyze this security alert and respond ONLY in valid JSON with these exact fields: threat_type, mitre_technique, confidence (0.0-1.0), risk_level (CRITICAL/HIGH/MEDIUM/LOW), summary (max 2 sentences), recommended_action (block_ip/monitor/escalate), block_duration_hours (integer).\n\nAlert data:\n{{ $json.sanitized_log }}\n\nRespond with JSON only, no other text."
+            },
+            {
+              "name": "stream",
+              "value": false
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "2075d127-0b58-47e5-af20-e5fa112979bd",
+      "name": "Llama Analysis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -656,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Llama response and prepare for Human Approval\nconst llamaRaw = $input.first().json.response || '{}';\nconst alertData = $('Sanitize Log').first().json;\n\nlet analysis;\ntry {\n  // Clean response and parse JSON\n  const cleaned = llamaRaw.replace(/```json/g, '').replace(/```/g, '').trim();\n  analysis = JSON.parse(cleaned);\n} catch(e) {\n  // Fallback if Llama response is not valid JSON\n  analysis = {\n    threat_type: alertData.alert_type,\n    mitre_technique: alertData.mitre,\n    confidence: 0.7,\n    risk_level: 'HIGH',\n    summary: 'Automated analysis failed. Manual review required.',\n    recommended_action: 'escalate',\n    block_duration_hours: 2\n  };\n}\n\n// Determine escalation timing based on risk level and business hours (AEST = UTC+10)\nconst nowUTC = new Date();\nconst nowAEST = new Date(nowUTC.getTime() + 10 * 60 * 60 * 1000);\nconst hourAEST = nowAEST.getUTCHours();\nconst isBusinessHours = hourAEST >= 8 && hourAEST < 18;\n\nlet escalationMinutes;\nswitch(analysis.risk_level) {\n  case 'CRITICAL':\n    escalationMinutes = 30;\n    break;\n  case 'HIGH':\n    escalationMinutes = isBusinessHours ? 60 : 30;\n    break;\n  case 'MEDIUM':\n    escalationMinutes = isBusinessHours ? 120 : 60;\n    break;\n  default:\n    escalationMinutes = 0; // LOW — no auto action\n}\n\nreturn [{\n  json: {\n    ...alertData,\n    analysis,\n    is_business_hours: isBusinessHours,\n    escalation_minutes: escalationMinutes,\n    timestamp_aest: nowAEST.toISOString().replace('T', ' ').substring(0, 19) + ' AEST'\n  }\n}];"
+      },
+      "id": "a92cd3a8-65f9-48ae-a40e-7c63e15f378f",
+      "name": "Parse & Enrich",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -448,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "low-risk",
+              "leftValue": "={{ $json.analysis.risk_level }}",
+              "rightValue": "LOW",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "46ec54e4-8350-4d9a-9dc9-977296e12033",
+      "name": "Is LOW Risk?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -224,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log LOW risk alerts without notification\nconst data = $input.first().json;\nconsole.log('LOW risk alert logged:', JSON.stringify(data.analysis));\nreturn [{ json: { status: 'logged', risk_level: 'LOW', src_ip: data.src_ip } }];"
+      },
+      "id": "5f71ec9e-ac61-4963-9bfb-c989397f0a43",
+      "name": "Log Only (LOW)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"status\": \"received\", \"risk_level\": \"{{ $('Parse & Enrich').first().json.analysis.risk_level }}\" }",
+        "options": {}
+      },
+      "id": "d30f5cdb-eb30-49d1-8081-022f776ad8a1",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        0,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://10.0.1.90:5678/webhook/human-approval",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        240,
+        288
+      ],
+      "id": "64052e34-04c0-4936-b177-e4889763280a",
+      "name": "HTTP Request"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Receive Alert": {
+      "main": [
+        [
+          {
+            "node": "Sanitize Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sanitize Log": {
+      "main": [
+        [
+          {
+            "node": "Llama Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Llama Analysis": {
+      "main": [
+        [
+          {
+            "node": "Parse & Enrich",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse & Enrich": {
+      "main": [
+        [
+          {
+            "node": "Is LOW Risk?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is LOW Risk?": {
+      "main": [
+        [
+          {
+            "node": "Log Only (LOW)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Response": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "9a12cecf-3b48-4ce7-9ff1-c9552400c89f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "cb2f05f1ed7f73af176955bded1a2240b297adc6a19309a0eace8fe2b99a8246"
+  },
+  "id": "5RnPmgrOSxcrxN6G",
+  "tags": []
+}

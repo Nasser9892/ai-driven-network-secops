@@ -1,0 +1,298 @@
+{
+  "name": "02 — Human Approval",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "human-approval",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "39be6cd0-ba98-4465-87f5-22480bebb569",
+      "name": "Receive for Approval",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1616,
+        -96
+      ],
+      "webhookId": "8094c6fe-4a59-41a9-81ca-cd65d2363295"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\": \"queued\", \"message\": \"Alert received\"}",
+        "options": {}
+      },
+      "id": "1b5f291d-9083-45e6-9b23-ab03904c03cb",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -1536,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "function getEscalationMinutes(riskLevel) {\n  const aestHour = (new Date().getUTCHours() + 10) % 24;\n  const businessHours = aestHour >= 8 && aestHour < 18;\n  const table = {\n    CRITICAL: { business: 30, after: 30 },\n    HIGH:     { business: 60, after: 30 },\n    MEDIUM:   { business: 120, after: 60 },\n    LOW:      { business: null, after: null }\n  };\n  const t = table[riskLevel] || table.HIGH;\n  return businessHours ? t.business : t.after;\n}\n\nconst data = $input.first().json.body || $input.first().json;\nconst analysis = data.analysis || {};\nconst riskLevel = analysis.risk_level || data.severity || 'HIGH';\nconst riskEmoji = {\n  'CRITICAL': '🔴',\n  'HIGH': '🟠',\n  'MEDIUM': '🟡',\n  'LOW': '🟢'\n}[riskLevel] || '⚪';\nconst confidencePct = Math.round((analysis.confidence || 0) * 100);\nconst alertId = `alert_${Date.now()}`;\n\nreturn [{\n  json: {\n    alert_id: alertId,\n    escalation_minutes: getEscalationMinutes(riskLevel) ?? (data.escalation_minutes || 30),\n    risk_level: riskLevel,\n    risk_emoji: riskEmoji,\n    src_ip: data.src_ip || 'Unknown',\n    block_duration_hours: analysis.block_duration_hours || 2,\n    threat_type: analysis.threat_type || 'Unknown',\n    mitre: analysis.mitre_technique || data.mitre || 'Unknown',\n    anomaly_score: data.anomaly_score || 'N/A',\n    confidence_pct: confidencePct,\n    analysis_summary: analysis.summary || 'No summary available.',\n    timestamp_aest: data.timestamp_aest || new Date().toISOString(),\n    recommended_action: analysis.recommended_action || 'block_ip'\n  }\n}];"
+      },
+      "id": "006e0592-0baf-4708-b09b-60cf2fe0da07",
+      "name": "Prepare Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1328,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst alertId = data.alert_id;\n\nconst slackBlocks = [\n  {\n    type: 'header',\n    text: { type: 'plain_text', text: `${data.risk_emoji} ${data.risk_level} ALERT — Action Required`, emoji: true }\n  },\n  {\n    type: 'section',\n    fields: [\n      { type: 'mrkdwn', text: `*Threat Type:*\\n${data.threat_type}` },\n      { type: 'mrkdwn', text: `*MITRE:*\\n${data.mitre}` },\n      { type: 'mrkdwn', text: `*Source IP:*\\n${data.src_ip}` },\n      { type: 'mrkdwn', text: `*Confidence:*\\n${data.confidence_pct}%` },\n      { type: 'mrkdwn', text: `*Anomaly Score:*\\n${data.anomaly_score}` },\n      { type: 'mrkdwn', text: `*Time (AEST):*\\n${data.timestamp_aest}` }\n    ]\n  },\n  {\n    type: 'section',\n    text: { type: 'mrkdwn', text: `*Analysis:*\\n${data.analysis_summary}` }\n  },\n  {\n    type: 'section',\n    text: { type: 'mrkdwn', text: `*Recommended:* Block IP for *${data.block_duration_hours} hours*\\n⏱ Auto-action in *${data.escalation_minutes} min* if no response.` }\n  },\n  {\n    type: 'actions',\n    block_id: alertId,\n    elements: [\n      {\n        type: 'button',\n        text: { type: 'plain_text', text: '✅ Approve Block', emoji: true },\n        style: 'primary',\n        action_id: 'approve_block',\n        value: JSON.stringify({\n          alert_id: alertId,\n          action: 'approve',\n          src_ip: data.src_ip,\n          block_duration_hours: data.block_duration_hours,\n          risk_level: data.risk_level,\n          threat_type: data.threat_type,\n          mitre: data.mitre\n        })\n      },\n      {\n        type: 'button',\n        text: { type: 'plain_text', text: '❌ Reject', emoji: true },\n        style: 'danger',\n        action_id: 'reject_block',\n        value: JSON.stringify({\n          alert_id: alertId,\n          action: 'reject',\n          src_ip: data.src_ip,\n          risk_level: data.risk_level\n        })\n      }\n    ]\n  }\n];\n\nreturn [{ json: { slack_blocks: slackBlocks, ...data } }];"
+      },
+      "id": "3a8493b2-d1f2-4c06-8eeb-7f5f55796948",
+      "name": "Build Slack Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1104,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/chat.postMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SLACK_BOT_TOKEN"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"channel\": \"C0BD462PW66\",\n  \"blocks\": {{ JSON.stringify($json.slack_blocks) }},\n  \"text\": \"Security Alert: {{ $json.risk_level }} — {{ $json.threat_type }} from {{ $json.src_ip }}\"\n}",
+        "options": {}
+      },
+      "id": "2f4947d2-4203-423f-b317-fa0df45b3c26",
+      "name": "Send Slack Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -880,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "amount": "={{ $('Prepare Data').first().json.escalation_minutes }}",
+        "unit": "minutes"
+      },
+      "id": "f974c725-bf2a-40d6-aeb7-d497d0546e38",
+      "name": "Wait for Admin",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        -656,
+        112
+      ],
+      "webhookId": "b990685b-cce2-4f6b-a823-ec86d603f481"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconsole.log(`Admin already responded (${data.admin_action}) for ${data.alert_id} — skipping auto escalation`);\nreturn [{ json: { status: 'skipped', reason: 'admin_responded', action: data.admin_action } }];"
+      },
+      "id": "60be2e5a-5396-4448-9590-0a24bbec781a",
+      "name": "Skip Auto Escalation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://10.0.1.90:5678/webhook/firewall-enforce",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"src_ip\": \"{{ $('Prepare Data').first().json.src_ip }}\",\n  \"block_duration_hours\": {{ $('Prepare Data').first().json.block_duration_hours }},\n  \"reason\": \"Auto escalation — no admin response after {{ $('Prepare Data').first().json.escalation_minutes }} minutes\",\n  \"risk_level\": \"{{ $('Prepare Data').first().json.risk_level }}\",\n  \"threat_type\": \"{{ $('Prepare Data').first().json.threat_type }}\",\n  \"mitre\": \"{{ $('Prepare Data').first().json.mitre }}\",\n  \"anomaly_score\": 0,\n  \"triggered_by\": \"auto_escalation\"\n}",
+        "options": {}
+      },
+      "id": "9bac4061-e182-4533-8cbb-271f9336a29a",
+      "name": "Auto Block",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const alertId = $('Prepare Data').first().json.alert_id;\nlet respondedFlag = 0;\nlet adminAction = 'none';\n\ntry {\n  const response = await this.helpers.httpRequest({\n    method: 'GET',\n    url: `http://127.0.0.1:5680/flag/${alertId}`,\n    json: true\n  });\n  if (response.found) {\n    respondedFlag = 1;\n    adminAction = response.data.action;\n  }\n} catch (e) {\n  console.log('Error checking flag:', e.message);\n}\n\nconst baseData = $('Prepare Data').first().json;\n\nreturn [{ json: { ...baseData, responded_flag: respondedFlag, admin_action: adminAction } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -448,
+        112
+      ],
+      "id": "7d21c835-4410-4ea0-99de-2c515bc17924",
+      "name": "Check & Route"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "80a0bd03-892e-4ed4-befd-3135780e3e09",
+              "leftValue": "={{ $json.responded_flag }}",
+              "rightValue": "1",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -240,
+        112
+      ],
+      "id": "8d47299f-ba9a-4259-b973-6ecec550a38a",
+      "name": "If"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Receive for Approval": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Data": {
+      "main": [
+        [
+          {
+            "node": "Build Slack Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Slack Message": {
+      "main": [
+        [
+          {
+            "node": "Send Slack Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Slack Alert": {
+      "main": [
+        [
+          {
+            "node": "Wait for Admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for Admin": {
+      "main": [
+        [
+          {
+            "node": "Check & Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check & Route": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Skip Auto Escalation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Auto Block",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "2aa1981b-9b30-4180-a279-3aed3cf7543e",
+  "meta": {
+    "instanceId": "cb2f05f1ed7f73af176955bded1a2240b297adc6a19309a0eace8fe2b99a8246"
+  },
+  "id": "TTvcZA329BWa5eza",
+  "tags": []
+}

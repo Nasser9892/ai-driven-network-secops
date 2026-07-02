@@ -8,7 +8,6 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
-# ── Column names exactly as Zeek writes them ──────────────────────────────────
 CONN_LOG_COLUMNS = [
     "ts", "uid", "id.orig_h", "id.orig_p", "id.resp_h", "id.resp_p",
     "proto", "service", "duration", "orig_bytes", "resp_bytes",
@@ -17,7 +16,6 @@ CONN_LOG_COLUMNS = [
     "tunnel_parents", "ip_proto"
 ]
 
-# ── Connection state encoding ──────────────────────────────────────────────────
 CONN_STATE_MAP = {
     "REJ": 0,
     "RST": 1,
@@ -26,14 +24,10 @@ CONN_STATE_MAP = {
 }
 FAILED_STATES = {"REJ", "RST", "S0"}
 
-WINDOW_SECONDS = 10  # sliding window size for aggregated features
+WINDOW_SECONDS = 10
 
 
 def load_conn_log(filepath: str) -> pd.DataFrame:
-    """
-    Read a Zeek conn.log file, skip comment lines, return a clean DataFrame.
-    Zeek uses tab-separated values and '-' for unset fields.
-    """
     path = Path(filepath)
     rows = []
 
@@ -45,10 +39,9 @@ def load_conn_log(filepath: str) -> pd.DataFrame:
 
     df = pd.DataFrame(rows, columns=CONN_LOG_COLUMNS)
 
-    # Replace Zeek's unset marker with NaN
-    df.replace("-", np.nan, inplace=True)
+    df = df.replace("-", np.nan)
+    df = df.infer_objects(copy=False)
 
-    # Cast numeric columns
     numeric_cols = [
         "ts", "id.orig_p", "id.resp_p", "duration",
         "orig_bytes", "resp_bytes", "missed_bytes",
@@ -64,10 +57,6 @@ def load_conn_log(filepath: str) -> pd.DataFrame:
 
 
 def extract_per_connection_features(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Compute features for each individual connection row.
-    These are fast, stateless calculations.
-    """
     feat = pd.DataFrame()
 
     feat["ts"]          = df["ts"]
@@ -77,7 +66,6 @@ def extract_per_connection_features(df: pd.DataFrame) -> pd.DataFrame:
     feat["proto"]       = df["proto"]
     feat["conn_state"]  = df["conn_state"]
 
-    # Fill missing numeric values with 0 for arithmetic
     orig_bytes = df["orig_bytes"].fillna(0)
     resp_bytes = df["resp_bytes"].fillna(0)
     orig_pkts  = df["orig_pkts"].fillna(0)
@@ -90,7 +78,7 @@ def extract_per_connection_features(df: pd.DataFrame) -> pd.DataFrame:
     feat["conn_state_encoded"]   = (
         df["conn_state"]
         .map(CONN_STATE_MAP)
-        .fillna(4)          # anything not in the map → 4
+        .fillna(4)
         .astype(int)
     )
 
@@ -98,17 +86,9 @@ def extract_per_connection_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def extract_windowed_features(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Compute 10-second sliding window aggregations per source IP.
-    Returns one row per (src_ip, window_start) pair.
-
-    These features catch scanning behaviour that looks normal
-    connection-by-connection but is obvious in aggregate.
-    """
     feat_per_conn = extract_per_connection_features(df)
     results = []
 
-    # Group by source IP, then slide a window across time
     for src_ip, group in feat_per_conn.groupby("src_ip"):
         group = group.sort_values("ts")
         timestamps = group["ts"].values
@@ -116,7 +96,6 @@ def extract_windowed_features(df: pd.DataFrame) -> pd.DataFrame:
         for i, t_start in enumerate(timestamps):
             t_end = t_start + WINDOW_SECONDS
 
-            # All connections from this src_ip inside the window
             mask   = (timestamps >= t_start) & (timestamps < t_end)
             window = group[mask]
 
@@ -132,13 +111,11 @@ def extract_windowed_features(df: pd.DataFrame) -> pd.DataFrame:
                 "window_start":      t_start,
                 "src_ip":            src_ip,
                 "total_conns":       total_conns,
-                # -- windowed features --
                 "unique_dst_ports":  window["dst_port"].nunique(),
                 "unique_dst_ips":    window["dst_ip"].nunique(),
                 "failed_conn_rate":  failed_count / total_conns,
                 "bytes_out_ratio":   orig_bytes / (resp_bytes + 1),
                 "conn_per_second":   total_conns / WINDOW_SECONDS,
-                # -- keep per-conn features for the anchor row too --
                 "duration":          window["duration"].mean(),
                 "orig_bytes":        orig_bytes,
                 "resp_bytes":        resp_bytes,
@@ -151,10 +128,6 @@ def extract_windowed_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def get_feature_matrix(filepath: str) -> pd.DataFrame:
-    """
-    Full pipeline: load conn.log → extract all features → return matrix.
-    The returned DataFrame is ready to feed into Isolation Forest.
-    """
     print(f"[*] Loading conn.log from {filepath}")
     df = load_conn_log(filepath)
     print(f"[*] Loaded {len(df)} connection records")
@@ -166,7 +139,6 @@ def get_feature_matrix(filepath: str) -> pd.DataFrame:
     return features
 
 
-# ── Quick smoke-test when run directly ────────────────────────────────────────
 if __name__ == "__main__":
     LOG_PATH = "/home/ubuntu/secops/logs/conn.log"
 
