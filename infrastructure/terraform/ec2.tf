@@ -12,10 +12,10 @@ data "aws_ami" "ubuntu" {
 }
 
 resource "aws_instance" "target" {
-  ami                         = data.aws_ami.ubuntu.id
+  ami                         = "ami-0111f46977d33b84b"
   instance_type               = "t3.micro"
   subnet_id                   = aws_subnet.public.id
-  associate_public_ip_address = true
+  associate_public_ip_address = false
   vpc_security_group_ids      = [aws_security_group.workloads.id]
   key_name                    = var.key_pair_name
   tags = {
@@ -26,10 +26,10 @@ resource "aws_instance" "target" {
 }
 
 resource "aws_instance" "zeek" {
-  ami                         = data.aws_ami.ubuntu.id
+  ami                         = "ami-0111f46977d33b84b"
   instance_type               = "t3.large"
   subnet_id                   = aws_subnet.public.id
-  associate_public_ip_address = true
+  associate_public_ip_address = false
   vpc_security_group_ids      = [aws_security_group.zeek.id]
   key_name                    = var.key_pair_name
   tags = {
@@ -40,10 +40,10 @@ resource "aws_instance" "zeek" {
 }
 
 resource "aws_instance" "detection" {
-  ami                         = data.aws_ami.ubuntu.id
+  ami                         = "ami-0111f46977d33b84b"
   instance_type               = "t3.large"
   subnet_id                   = aws_subnet.public.id
-  associate_public_ip_address = true
+  associate_public_ip_address = false
   vpc_security_group_ids      = [aws_security_group.detection.id]
   key_name                    = var.key_pair_name
   tags = {
@@ -54,8 +54,8 @@ resource "aws_instance" "detection" {
 }
 
 resource "aws_instance" "management" {
-  ami                         = data.aws_ami.ubuntu.id
-  instance_type               = "t3.medium"
+  ami                         = "ami-0111f46977d33b84b"
+  instance_type               = "t3.xlarge"
   subnet_id                   = aws_subnet.public.id
   associate_public_ip_address = true
   vpc_security_group_ids      = [aws_security_group.management.id]
@@ -64,5 +64,17 @@ resource "aws_instance" "management" {
     Name    = "${var.project_name}-management"
     Role    = "management"
     Project = var.project_name
+  }
+}
+
+resource "aws_instance" "secops_dashboard" {
+  ami                    = "ami-0111f46977d33b84b"
+  instance_type          = "t3.medium"
+  subnet_id              = "subnet-023e50f4841e32e8c"
+  vpc_security_group_ids = [aws_security_group.dashboard_sg.id]
+  key_name               = "secops-key"
+
+  tags = {
+    Name = "secops-dashboard"
   }
 }

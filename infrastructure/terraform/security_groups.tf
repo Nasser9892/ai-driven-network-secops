@@ -41,41 +41,6 @@ resource "aws_security_group" "workloads" {
   }
 }
 
-# Security Group - Zeek (passive listener)
-resource "aws_security_group" "zeek" {
-  name        = "${var.project_name}-zeek-sg"
-  description = "Zeek engine - receives mirrored traffic via VXLAN"
-  vpc_id      = aws_vpc.main.id
-
-  ingress {
-    description = "SSH from anywhere (demo only)"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    description = "VXLAN - mirrored traffic from VPC Traffic Mirroring"
-    from_port   = 4789
-    to_port     = 4789
-    protocol    = "udp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    description = "Allow all outbound"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name    = "${var.project_name}-zeek-sg"
-    Project = var.project_name
-  }
-}
 
 # Security Group - ML Engine + Wazuh
 resource "aws_security_group" "detection" {
@@ -157,6 +122,9 @@ resource "aws_security_group" "ai" {
 
 # Security Group - Management (n8n + SOC Dashboard)
 resource "aws_security_group" "management" {
+  lifecycle {
+    ignore_changes = [ingress]
+  }
   name        = "${var.project_name}-management-sg"
   description = "n8n and SOC dashboard - accessible from internet for demo"
   vpc_id      = aws_vpc.main.id
@@ -196,4 +164,129 @@ resource "aws_security_group" "management" {
     Name    = "${var.project_name}-management-sg"
     Project = var.project_name
   }
+}
+
+resource "aws_security_group" "dashboard_sg" {
+  lifecycle {
+    ignore_changes = [ingress]
+  }
+  name        = "secops-dashboard-sg"
+  description = "Security group for SOC Dashboard"
+  vpc_id      = "vpc-0455a10988fec19f5"
+
+  ingress {
+    description = "SSH from admin"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["202.7.245.124/32"]
+  }
+
+  ingress {
+    description = "Dashboard Web UI"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["202.7.245.124/32"]
+  }
+
+  ingress {
+    description = "FastAPI backend"
+    from_port   = 8000
+    to_port     = 8000
+    protocol    = "tcp"
+    cidr_blocks = ["202.7.245.124/32"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "secops-dashboard-sg"
+  }
+}
+
+resource "aws_security_group_rule" "detection_wazuh_agent" {
+  type              = "ingress"
+  from_port         = 1514
+  to_port           = 1514
+  protocol          = "tcp"
+  cidr_blocks       = ["10.0.0.0/16"]
+  security_group_id = aws_security_group.detection.id
+}
+
+resource "aws_security_group_rule" "detection_wazuh_reg" {
+  type              = "ingress"
+  from_port         = 1515
+  to_port           = 1515
+  protocol          = "tcp"
+  cidr_blocks       = ["10.0.0.0/16"]
+  security_group_id = aws_security_group.detection.id
+}
+resource "aws_security_group" "zeek" {
+  name        = "${var.project_name}-zeek-sg"
+  description = "Zeek engine - receives mirrored traffic, no direct inbound"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 4789
+    to_port     = 4789
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "SSH from management layer only"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.1.0/24"]
+  }
+
+  egress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    description = "Send logs to ML engine and Wazuh"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["10.0.1.0/24"]
+  }
+
+  tags = {
+    Name    = "${var.project_name}-zeek-sg"
+    Project = var.project_name
+  }
+}
+
+resource "aws_security_group_rule" "management_ollama" {
+  type              = "ingress"
+  from_port         = 11434
+  to_port           = 11434
+  protocol          = "tcp"
+  cidr_blocks       = ["10.0.0.0/16"]
+  security_group_id = aws_security_group.management.id
 }

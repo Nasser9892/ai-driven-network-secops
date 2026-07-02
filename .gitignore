@@ -32,3 +32,5 @@ Thumbs.db
 
 # ChromaDB
 chroma_db/
+*.tfstate*
+terraform.tfstate.*.backup
