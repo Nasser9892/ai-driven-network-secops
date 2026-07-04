@@ -89,13 +89,11 @@
       "parameters": {
         "method": "POST",
         "url": "https://slack.com/api/chat.postMessage",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Bearer YOUR_SLACK_BOT_TOKEN"
-            },
             {
               "name": "Content-Type",
               "value": "application/json"
@@ -124,7 +122,13 @@
       "position": [
         208,
         0
-      ]
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "MUZ5in4MXBwcXKs5",
+          "name": "Slack Bot Token"
+        }
+      }
     },
     {
       "parameters": {
@@ -242,7 +246,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "db053f38-d0ab-4a5f-aa3e-bc03129e4a35",
+  "versionId": "43330e33-7c63-4a05-8a25-5b45ccb2b3b7",
   "meta": {
     "instanceId": "cb2f05f1ed7f73af176955bded1a2240b297adc6a19309a0eace8fe2b99a8246"
   },
