@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" font-family="'Segoe UI',Arial,sans-serif">
+  <defs>
+    <style>
+      .ec2{fill:#fff;stroke:#64748b;stroke-width:1.5;rx:6}
+      .t{font-size:12.5px;font-weight:600;fill:#0f172a}
+      .m{font-family:'Consolas',monospace;font-size:10px;fill:#475569}
+      .role{font-size:10px;fill:#64748b}
+    </style>
+  </defs>
+  <rect width="960" height="640" fill="#f8fafc"/>
+  <text x="480" y="34" text-anchor="middle" font-size="20" font-weight="700" fill="#0f172a">AWS Network Topology — ap-southeast-2 (Sydney)</text>
+
+  <!-- VPC -->
+  <rect x="40" y="60" width="880" height="500" rx="12" fill="none" stroke="#8b5cf6" stroke-width="2"/>
+  <rect x="40" y="60" width="330" height="26" rx="12" fill="#8b5cf6"/>
+  <text x="56" y="78" font-size="12.5" font-weight="700" fill="#fff">VPC · vpc-0455a10988fec19f5 · 10.0.0.0/16</text>
+
+  <!-- IGW -->
+  <rect class="ec2" x="410" y="96" width="140" height="40" fill="#ede9fe"/>
+  <text class="t" x="480" y="114" text-anchor="middle">Internet Gateway</text>
+  <text class="m" x="480" y="129" text-anchor="middle">igw-00a8913e6e78d5204</text>
+
+  <!-- Public subnet -->
+  <rect x="70" y="160" width="820" height="270" rx="10" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="86" y="182" font-size="12.5" font-weight="700" fill="#1e40af">Public Subnet · subnet-023e50f4841e32e8c · 10.0.1.0/24</text>
+
+  <!-- NACL banner -->
+  <rect x="86" y="192" width="788" height="28" rx="6" fill="#fef2f2" stroke="#ef4444" stroke-width="1.5"/>
+  <text class="t" x="98" y="211" fill="#991b1b">NACL · acl-02cccdb666cab9d47 — explicit DENY (rules 1–99) · enforcement point · applies at subnet level</text>
+
+  <!-- EC2 row 1 -->
+  <rect class="ec2" x="90" y="234" width="240" height="86" fill="#f0fdf4"/>
+  <text class="t" x="102" y="256">secops-target</text>
+  <text class="m" x="102" y="273">i-0e721b436786b05bb</text>
+  <text class="m" x="102" y="288">10.0.1.157 · t3.micro</text>
+  <text class="role" x="102" y="308">Attack target / workload</text>
+
+  <rect class="ec2" x="358" y="234" width="240" height="86" fill="#fefce8"/>
+  <text class="t" x="370" y="256">secops-zeek</text>
+  <text class="m" x="370" y="273">i-02d94970bcb1e77c9</text>
+  <text class="m" x="370" y="288">10.0.1.249 · t3.large</text>
+  <text class="role" x="370" y="308">Zeek 8.0.5 passive capture</text>
+
+  <rect class="ec2" x="626" y="234" width="240" height="86" fill="#fff7ed"/>
+  <text class="t" x="638" y="256">secops-detection</text>
+  <text class="m" x="638" y="273">i-0d853b653bc2517ff</text>
+  <text class="m" x="638" y="288">10.0.1.207 · t3.large · 12 GB</text>
+  <text class="role" x="638" y="308">ML engine + Wazuh SIEM</text>
+
+  <!-- EC2 row 2 -->
+  <rect class="ec2" x="90" y="332" width="360" height="86" fill="#faf5ff"/>
+  <text class="t" x="102" y="354">secops-management</text>
+  <text class="m" x="102" y="371">i-0860e2cc252977841 · t3.xlarge</text>
+  <text class="m" x="102" y="386">10.0.1.90 · EIP 13.55.19.90</text>
+  <text class="role" x="102" y="406">Ollama + n8n + enforcement API (5680)</text>
+
+  <rect class="ec2" x="470" y="332" width="396" height="86" fill="#f1f5f9"/>
+  <text class="t" x="482" y="354">secops-dashboard</text>
+  <text class="m" x="482" y="371">i-06df8b1c2e56eae0f · t3.medium</text>
+  <text class="m" x="482" y="386">10.0.1.36</text>
+  <text class="role" x="482" y="406">SOC Dashboard · FastAPI + React + SQLite · nginx/TLS</text>
+
+  <!-- Private subnet -->
+  <rect x="70" y="446" width="820" height="94" rx="10" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="86" y="468" font-size="12.5" font-weight="700" fill="#475569">Private Subnet · subnet-07af774fee300d1d8 · 10.0.2.0/24</text>
+  <text class="m" x="86" y="490">Reserved for future per-layer segmentation (six-subnet production path — ADR-004).</text>
+  <text class="m" x="86" y="507">Current build consolidates workloads into the public subnet; isolation enforced via 5 role-based Security Groups.</text>
+  <text class="m" x="86" y="524">SGs: workloads · zeek · detection · management · ai</text>
+
+  <text x="480" y="580" text-anchor="middle" font-size="11" fill="#64748b">Public IPs are dynamic on restart for all instances except secops-management (Elastic IP). Internal service calls use stable private IPs.</text>
+  <text x="480" y="600" text-anchor="middle" font-size="11" fill="#64748b">Admin access (SSH 22 / dashboard 443 / n8n 5678) restricted to admin IP 202.7.245.124/32.</text>
+  <text x="480" y="620" text-anchor="middle" font-size="10.5" fill="#94a3b8">Traffic Mirroring: secops-target ENI → secops-zeek ENI (VXLAN UDP 4789)</text>
+</svg>

@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 720" font-family="'Segoe UI',Arial,sans-serif">
+  <defs>
+    <marker id="a" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#334155"/>
+    </marker>
+    <style>
+      .n{fill:#fff;stroke:#94a3b8;stroke-width:1.5;rx:8}
+      .num{font-size:12px;font-weight:700;fill:#fff}
+      .t{font-size:12.5px;font-weight:600;fill:#0f172a}
+      .m{font-family:'Consolas',monospace;font-size:10px;fill:#475569}
+      .e{stroke:#334155;stroke-width:2;fill:none;marker-end:url(#a)}
+    </style>
+  </defs>
+  <rect width="960" height="720" fill="#f8fafc"/>
+  <text x="480" y="34" text-anchor="middle" font-size="20" font-weight="700" fill="#0f172a">Phase 7 — End-to-End Flow: Nmap Scan → NACL Block</text>
+  <text x="480" y="54" text-anchor="middle" font-size="12" fill="#64748b">Implemented &amp; recorded · Approve path independently verified via direct AWS query</text>
+
+  <!-- helper: numbered circle done inline -->
+  <!-- 1 attacker -->
+  <rect class="n" x="60" y="80" width="360" height="58" fill="#fef2f2" stroke="#ef4444"/>
+  <circle cx="86" cy="109" r="13" fill="#ef4444"/><text class="num" x="86" y="113" text-anchor="middle">1</text>
+  <text class="t" x="112" y="104">Attacker (throwaway EC2, non-admin IP)</text>
+  <text class="m" x="112" y="122">nmap -sS -T4 --min-rate 500 → secops-target</text>
+
+  <!-- 2 mirror -->
+  <rect class="n" x="60" y="158" width="360" height="52" fill="#fefce8" stroke="#eab308"/>
+  <circle cx="86" cy="184" r="13" fill="#eab308"/><text class="num" x="86" y="188" text-anchor="middle">2</text>
+  <text class="t" x="112" y="180">VPC Traffic Mirroring → Zeek</text>
+  <text class="m" x="112" y="198">copy over VXLAN UDP 4789</text>
+
+  <!-- 3 zeek -->
+  <rect class="n" x="60" y="230" width="360" height="58" fill="#fefce8" stroke="#eab308"/>
+  <circle cx="86" cy="259" r="13" fill="#eab308"/><text class="num" x="86" y="263" text-anchor="middle">3</text>
+  <text class="t" x="112" y="254">Zeek conn.log</text>
+  <text class="m" x="112" y="272">many REJ/RST/S0 · orig_bytes=0 · high unique_dst_ports</text>
+
+  <!-- 4 ML -->
+  <rect class="n" x="60" y="308" width="360" height="58" fill="#fff7ed" stroke="#f97316"/>
+  <circle cx="86" cy="337" r="13" fill="#f97316"/><text class="num" x="86" y="341" text-anchor="middle">4</text>
+  <text class="t" x="112" y="332">ML · Isolation Forest</text>
+  <text class="m" x="112" y="350">score &lt; -0.15 → CRITICAL alert JSON</text>
+
+  <!-- 5 Wazuh -->
+  <rect class="n" x="60" y="386" width="360" height="52" fill="#fff7ed" stroke="#f97316"/>
+  <circle cx="86" cy="412" r="13" fill="#f97316"/><text class="num" x="86" y="416" text-anchor="middle">5</text>
+  <text class="t" x="112" y="408">Wazuh SIEM</text>
+  <text class="m" x="112" y="426">"Port Scan Detected" → MITRE T1046</text>
+
+  <!-- 6 n8n triage -->
+  <rect class="n" x="60" y="458" width="360" height="58" fill="#faf5ff" stroke="#a855f7"/>
+  <circle cx="86" cy="487" r="13" fill="#a855f7"/><text class="num" x="86" y="491" text-anchor="middle">6</text>
+  <text class="t" x="112" y="482">n8n WF01 · Alert Triage</text>
+  <text class="m" x="112" y="500">sanitize → ChromaDB context → Llama analysis</text>
+
+  <!-- edges left column -->
+  <path class="e" d="M240,138 L240,156"/>
+  <path class="e" d="M240,210 L240,228"/>
+  <path class="e" d="M240,288 L240,306"/>
+  <path class="e" d="M240,366 L240,384"/>
+  <path class="e" d="M240,438 L240,456"/>
+
+  <!-- cross to right column -->
+  <path class="e" d="M420,487 L540,487 L540,109 L558,109"/>
+
+  <!-- 7 llama out -->
+  <rect class="n" x="560" y="80" width="360" height="58" fill="#faf5ff" stroke="#a855f7"/>
+  <circle cx="586" cy="109" r="13" fill="#a855f7"/><text class="num" x="586" y="113" text-anchor="middle">7</text>
+  <text class="t" x="612" y="104">Llama-3.1-8B structured output</text>
+  <text class="m" x="612" y="122">{threat: Port Scan, mitre: T1046, action: block_ip}</text>
+
+  <!-- 8 slack -->
+  <rect class="n" x="560" y="158" width="360" height="58" fill="#faf5ff" stroke="#a855f7"/>
+  <circle cx="586" cy="187" r="13" fill="#a855f7"/><text class="num" x="586" y="191" text-anchor="middle">8</text>
+  <text class="t" x="612" y="182">n8n WF02 · Human Approval</text>
+  <text class="m" x="612" y="200">Slack message · [Approve] [Reject]</text>
+
+  <!-- 9 admin approve -->
+  <rect class="n" x="560" y="236" width="360" height="58" fill="#f0fdf4" stroke="#22c55e"/>
+  <circle cx="586" cy="265" r="13" fill="#22c55e"/><text class="num" x="586" y="269" text-anchor="middle">9</text>
+  <text class="t" x="612" y="260">Admin clicks Approve → WF04 → WF03</text>
+  <text class="m" x="612" y="278">timeout → policy-driven auto-escalation instead</text>
+
+  <!-- 10 enforcement -->
+  <rect class="n" x="560" y="314" width="360" height="66" fill="#fef2f2" stroke="#ef4444"/>
+  <circle cx="586" cy="347" r="13" fill="#ef4444"/><text class="num" x="586" y="351" text-anchor="middle">10</text>
+  <text class="t" x="612" y="338">Enforcement API → NACL deny (rule 1–99)</text>
+  <text class="m" x="612" y="356">internal-IP guard checked first</text>
+  <text class="m" x="612" y="372">verified via independent AWS re-query</text>
+
+  <!-- 11 audit -->
+  <rect class="n" x="560" y="400" width="360" height="58" fill="#f1f5f9" stroke="#64748b"/>
+  <circle cx="586" cy="429" r="13" fill="#64748b"/><text class="num" x="586" y="433" text-anchor="middle">11</text>
+  <text class="t" x="612" y="424">Audit record written · IP loses subnet access</text>
+  <text class="m" x="612" y="442">action · timestamp · triggered_by · verified</text>
+
+  <!-- edges right -->
+  <path class="e" d="M740,138 L740,156"/>
+  <path class="e" d="M740,216 L740,234"/>
+  <path class="e" d="M740,294 L740,312"/>
+  <path class="e" d="M740,380 L740,398"/>
+
+  <!-- verification note -->
+  <rect x="60" y="536" width="860" height="120" rx="8" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5"/>
+  <text class="t" x="80" y="562">Testing discipline</text>
+  <text class="m" x="80" y="584">• For enforcement-path tests, use a synthetic external alert (curl with a fabricated src_ip such as 203.0.113.50).</text>
+  <text class="m" x="80" y="602">• NEVER nmap from the admin IP — a subnet-level NACL deny would also cut the admin's own SSH / n8n / dashboard access.</text>
+  <text class="m" x="80" y="620">• Success = the exact IP appears as a deny entry in the NACL on a direct describe-network-acls query — not merely green n8n nodes.</text>
+  <text class="m" x="80" y="638">• Verified block during Phase 6/7: 203.0.113.50/32 · RuleNumber 1 · RuleAction deny.</text>
+
+  <text x="480" y="686" text-anchor="middle" font-size="10.5" fill="#94a3b8">Known issue to fix before Phase 8: live_detection.py is stateless (re-reads full conn.log; in-memory cooldown) → duplicate alerts after restart.</text>
+</svg>

@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 560" font-family="'Segoe UI',Arial,sans-serif">
+  <defs>
+    <marker id="a" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#334155"/>
+    </marker>
+    <marker id="am" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#eab308"/>
+    </marker>
+    <style>
+      .n{fill:#fff;stroke:#94a3b8;stroke-width:1.5;rx:8}
+      .t{font-size:13px;font-weight:600;fill:#0f172a}
+      .m{font-family:'Consolas',monospace;font-size:10.5px;fill:#475569}
+      .live{stroke:#334155;stroke-width:2.5;fill:none;marker-end:url(#a)}
+      .mir{stroke:#eab308;stroke-width:2.5;fill:none;marker-end:url(#am);stroke-dasharray:7 4}
+      .lb{font-size:11px;fill:#64748b;font-style:italic}
+    </style>
+  </defs>
+  <rect width="960" height="560" fill="#f8fafc"/>
+  <text x="480" y="34" text-anchor="middle" font-size="20" font-weight="700" fill="#0f172a">Traffic Flow — Live Path vs. Passive Mirror Capture</text>
+  <text x="480" y="54" text-anchor="middle" font-size="12" fill="#64748b">VPC Traffic Mirroring = AWS-native SPAN port · Zeek never touches the live path</text>
+
+  <!-- attacker -->
+  <rect class="n" x="40" y="230" width="160" height="70"/>
+  <text class="t" x="120" y="260" text-anchor="middle">Attacker</text>
+  <text class="m" x="120" y="278" text-anchor="middle">external IP</text>
+  <text class="m" x="120" y="292" text-anchor="middle">nmap -sS -T4</text>
+
+  <!-- IGW -->
+  <rect class="n" x="250" y="235" width="130" height="60"/>
+  <text class="t" x="315" y="262" text-anchor="middle">IGW</text>
+  <text class="m" x="315" y="280" text-anchor="middle">igw-00a8913…</text>
+
+  <!-- target -->
+  <rect class="n" x="430" y="225" width="180" height="80" fill="#f0fdf4" stroke="#22c55e"/>
+  <text class="t" x="520" y="252" text-anchor="middle">secops-target</text>
+  <text class="m" x="520" y="270" text-anchor="middle">10.0.1.157 · t3.micro</text>
+  <text class="m" x="520" y="286" text-anchor="middle">ENI (mirror source)</text>
+
+  <!-- mirror session box -->
+  <rect x="430" y="360" width="180" height="60" rx="8" fill="#fefce8" stroke="#eab308" stroke-width="1.5"/>
+  <text class="t" x="520" y="385" text-anchor="middle">Mirror Session</text>
+  <text class="m" x="520" y="403" text-anchor="middle">tms-… · all traffic</text>
+
+  <!-- zeek -->
+  <rect class="n" x="700" y="350" width="220" height="80" fill="#fefce8" stroke="#eab308"/>
+  <text class="t" x="810" y="377" text-anchor="middle">secops-zeek · Zeek 8.0.5</text>
+  <text class="m" x="810" y="395" text-anchor="middle">10.0.1.249 · VXLAN UDP 4789</text>
+  <text class="m" x="810" y="411" text-anchor="middle">ENI (mirror target)</text>
+
+  <!-- logs out -->
+  <rect class="n" x="700" y="230" width="220" height="70" fill="#fff7ed" stroke="#f97316"/>
+  <text class="t" x="810" y="258" text-anchor="middle">Structured Logs</text>
+  <text class="m" x="810" y="276" text-anchor="middle">conn · dns · http · ssl</text>
+  <text class="m" x="810" y="290" text-anchor="middle">weird · notice</text>
+
+  <!-- live edges -->
+  <path class="live" d="M200,265 L248,265"/>
+  <path class="live" d="M380,265 L428,265"/>
+  <text class="lb" x="300" y="255" text-anchor="middle">live traffic (in-path)</text>
+
+  <!-- mirror copy -->
+  <path class="mir" d="M520,305 L520,358"/>
+  <text class="lb" x="600" y="335" text-anchor="middle">copy (out-of-band)</text>
+  <path class="mir" d="M610,390 L698,390"/>
+
+  <!-- zeek to logs -->
+  <path class="live" d="M810,350 L810,302"/>
+  <text class="lb" x="880" y="330" text-anchor="middle">parse</text>
+
+  <!-- to detection -->
+  <rect class="n" x="700" y="120" width="220" height="56" fill="#fff7ed" stroke="#f97316"/>
+  <text class="t" x="810" y="145" text-anchor="middle">Layer 2 · Detection</text>
+  <text class="m" x="810" y="163" text-anchor="middle">ML + Wazuh SIEM</text>
+  <path class="live" d="M810,230 L810,178"/>
+
+  <rect x="40" y="440" width="880" height="90" rx="8" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5"/>
+  <text class="t" x="60" y="465">Why passive?</text>
+  <text class="m" x="60" y="486">• The AI/detection stack sits entirely on the mirrored copy — a crash or compromise there cannot drop or delay production traffic.</text>
+  <text class="m" x="60" y="504">• Mirror filter captures ingress + egress; Zeek's second ENI receives VXLAN-encapsulated packets on UDP 4789.</text>
+  <text class="m" x="60" y="522">• Equivalent to a physical SPAN port / promiscuous NIC, implemented with AWS VPC Traffic Mirroring.</text>
+
+  <!-- legend -->
+  <line x1="620" y1="60" x2="650" y2="60" stroke="#334155" stroke-width="2.5"/>
+  <text class="m" x="655" y="64">live path</text>
+  <line x1="740" y1="60" x2="770" y2="60" stroke="#eab308" stroke-width="2.5" stroke-dasharray="7 4"/>
+  <text class="m" x="775" y="64">mirrored copy</text>
+</svg>

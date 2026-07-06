@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 940" font-family="'Segoe UI',Arial,sans-serif">
+  <defs>
+    <marker id="arr" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#334155"/>
+    </marker>
+    <style>
+      .layer{stroke-width:2;rx:10}
+      .title{font-size:15px;font-weight:700;fill:#0f172a}
+      .sub{font-size:11.5px;fill:#334155}
+      .mono{font-family:'Consolas',monospace;font-size:10.5px;fill:#475569}
+      .lbl{font-size:11px;fill:#64748b;font-style:italic}
+      .box{fill:#fff;stroke:#94a3b8;stroke-width:1.5;rx:6}
+      .btitle{font-size:12px;font-weight:600;fill:#0f172a}
+      .edge{stroke:#334155;stroke-width:2;fill:none;marker-end:url(#arr)}
+    </style>
+  </defs>
+
+  <rect width="960" height="940" fill="#f8fafc"/>
+  <text x="480" y="34" text-anchor="middle" font-size="20" font-weight="700" fill="#0f172a">AI-Driven Network Security Platform — Four-Layer Architecture</text>
+  <text x="480" y="54" text-anchor="middle" font-size="12" fill="#64748b">AWS ap-southeast-2 · Passive detection · Human-in-the-loop enforcement</text>
+
+  <!-- INTERNET -->
+  <rect x="330" y="72" width="300" height="34" rx="17" fill="#1e293b"/>
+  <text x="480" y="94" text-anchor="middle" font-size="12.5" font-weight="600" fill="#fff">INTERNET / EXTERNAL TRAFFIC</text>
+  <path class="edge" d="M480,106 L480,128"/>
+
+  <!-- LAYER 0 -->
+  <rect class="layer" x="40" y="130" width="880" height="86" fill="#eff6ff" stroke="#3b82f6"/>
+  <text class="title" x="60" y="154">LAYER 0 · PERIMETER &amp; ENFORCEMENT</text>
+  <rect class="box" x="60" y="164" width="270" height="40"/>
+  <text class="btitle" x="72" y="182">Security Groups (allow-list)</text>
+  <text class="mono" x="72" y="197">5 SGs · one per role</text>
+  <rect class="box" x="345" y="164" width="290" height="40"/>
+  <text class="btitle" x="357" y="182">Network ACL — explicit DENY</text>
+  <text class="mono" x="357" y="197">acl-02cccdb… · rules 1–99</text>
+  <rect class="box" x="650" y="164" width="250" height="40"/>
+  <text class="btitle" x="662" y="182">boto3 driven from Layer 3</text>
+  <text class="mono" x="662" y="197">human-approved block_ip()</text>
+
+  <!-- split live / mirror -->
+  <path class="edge" d="M300,216 L230,250"/>
+  <text class="lbl" x="150" y="240">live traffic</text>
+  <path class="edge" d="M660,216 L730,250"/>
+  <text class="lbl" x="720" y="240">mirrored copy (passive)</text>
+
+  <!-- LAYER 1 workload -->
+  <rect class="layer" x="40" y="252" width="360" height="86" fill="#f0fdf4" stroke="#22c55e"/>
+  <text class="title" x="60" y="276">LAYER 1 · WORKLOAD</text>
+  <rect class="box" x="60" y="286" width="320" height="42"/>
+  <text class="btitle" x="72" y="304">secops-target · t3.micro</text>
+  <text class="mono" x="72" y="320">10.0.1.157 · attack target</text>
+
+  <!-- LAYER 1.5 capture -->
+  <rect class="layer" x="560" y="252" width="360" height="86" fill="#fefce8" stroke="#eab308"/>
+  <text class="title" x="580" y="276">LAYER 1.5 · CAPTURE</text>
+  <rect class="box" x="580" y="286" width="320" height="42"/>
+  <text class="btitle" x="592" y="304">secops-zeek · Zeek 8.0.5 · t3.large</text>
+  <text class="mono" x="592" y="320">conn / dns / http / ssl / weird / notice</text>
+
+  <path class="edge" d="M740,338 L740,372"/>
+  <text class="lbl" x="752" y="360">structured logs</text>
+
+  <!-- LAYER 2 detection -->
+  <rect class="layer" x="40" y="374" width="880" height="150" fill="#fff7ed" stroke="#f97316"/>
+  <text class="title" x="60" y="398">LAYER 2 · DETECTION ENGINE  (secops-detection · t3.large · 12 GB EBS)</text>
+  <rect class="box" x="60" y="410" width="420" height="100"/>
+  <text class="btitle" x="72" y="430">2A · ML Anomaly Detection (fast path)</text>
+  <text class="sub" x="72" y="450">Zeek logs → Feature Engineering → Isolation Forest</text>
+  <text class="mono" x="72" y="470">contamination 0.01 · n_estimators 100</text>
+  <text class="mono" x="72" y="488">score &lt; -0.05 → ALERT</text>
+  <text class="mono" x="72" y="504">score &lt; -0.15 → CRITICAL</text>
+  <rect class="box" x="500" y="410" width="400" height="100"/>
+  <text class="btitle" x="512" y="430">2B · SIEM Correlation (Wazuh 4.14.5)</text>
+  <text class="sub" x="512" y="450">Zeek logs + host syslogs → rules engine</text>
+  <text class="mono" x="512" y="470">MITRE ATT&amp;CK mapping</text>
+  <text class="mono" x="512" y="488">T1046 Port Scan · T1071 Protocol Violation</text>
+  <text class="mono" x="512" y="504">Vuln Detection disabled (disk)</text>
+
+  <path class="edge" d="M480,524 L480,558"/>
+  <text class="lbl" x="492" y="546">filtered — suspicious only</text>
+
+  <!-- LAYER 3 AI -->
+  <rect class="layer" x="40" y="560" width="880" height="300" fill="#faf5ff" stroke="#a855f7"/>
+  <text class="title" x="60" y="584">LAYER 3 · AI ANALYSIS &amp; RESPONSE  (secops-management · t3.xlarge · EIP 13.55.19.90)</text>
+
+  <rect class="box" x="60" y="596" width="250" height="56"/>
+  <text class="btitle" x="72" y="616">n8n Orchestrator</text>
+  <text class="mono" x="72" y="632">WF01–WF04 · port 5678</text>
+  <text class="mono" x="72" y="646">executeCommand removed → Flask API</text>
+
+  <rect class="box" x="330" y="596" width="230" height="56"/>
+  <text class="btitle" x="342" y="616">RAG Context</text>
+  <text class="mono" x="342" y="632">ChromaDB · topology,</text>
+  <text class="mono" x="342" y="646">assets, baseline</text>
+
+  <rect class="box" x="580" y="596" width="320" height="56"/>
+  <text class="btitle" x="592" y="616">Llama-3.1-8B · Ollama (CPU)</text>
+  <text class="mono" x="592" y="632">deep analysis · function calling</text>
+  <text class="mono" x="592" y="646">~40–52 s round-trip (known limit)</text>
+
+  <path class="edge" d="M310,624 L328,624"/>
+  <path class="edge" d="M560,624 L578,624"/>
+  <path class="edge" d="M480,652 L480,684"/>
+
+  <!-- tools -->
+  <rect class="box" x="80" y="686" width="230" height="46"/>
+  <text class="btitle" x="92" y="706">block_ip()</text>
+  <text class="mono" x="92" y="722">boto3 → NACL deny</text>
+  <rect class="box" x="365" y="686" width="230" height="46"/>
+  <text class="btitle" x="377" y="706">escalate_to_human()</text>
+  <text class="mono" x="377" y="722">Slack + AWS SES</text>
+  <rect class="box" x="650" y="686" width="230" height="46"/>
+  <text class="btitle" x="662" y="706">notify_soc()</text>
+  <text class="mono" x="662" y="722">Slack / Dashboard</text>
+
+  <path class="edge" d="M195,732 L195,764"/>
+
+  <!-- human gate -->
+  <rect x="60" y="766" width="500" height="46" rx="6" fill="#fef2f2" stroke="#ef4444" stroke-width="1.5"/>
+  <text class="btitle" x="72" y="786">Human-in-the-loop — Slack Approve / Reject</text>
+  <text class="mono" x="72" y="802">only block_ip &amp; firewall mutations require approval</text>
+
+  <rect x="580" y="766" width="320" height="46" rx="6" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.5"/>
+  <text class="btitle" x="592" y="786">NACL deny entry created + verified</text>
+  <text class="mono" x="592" y="802">independent AWS re-query · not log-trusted</text>
+  <path class="edge" d="M560,789 L578,789"/>
+
+  <!-- SOC dashboard -->
+  <rect class="box" x="60" y="822" width="840" height="26" fill="#f1f5f9"/>
+  <text class="mono" x="72" y="839">SOC Dashboard (secops-dashboard · t3.medium · 10.0.1.36) — FastAPI + React + SQLite · nginx/TLS · network-aware Llama chat</text>
+
+  <text x="480" y="880" text-anchor="middle" font-size="10.5" fill="#94a3b8">Enforcement is NACL-based (allow-only Security Groups cannot block). AI never sits inline — passive on mirrored traffic only.</text>
+  <text x="480" y="898" text-anchor="middle" font-size="10.5" fill="#94a3b8">Status: Layers 0–3 + Dashboard + Phase 7 (Nmap E2E) delivered · Phases 8–11 on roadmap</text>
+</svg>
