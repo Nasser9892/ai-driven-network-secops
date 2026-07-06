@@ -33,9 +33,9 @@ The AI never sits inline in the live traffic path. A failure or compromise of th
 
 ## Demo
 
-> 📹 **[Phase 7 — Nmap → NACL block, end-to-end](#)** — _YouTube link to be added_
-
-<!-- Optional: short GIF at the top of the demo, full walkthrough on YouTube -->
+> 📹 **[Phase 7 — Nmap → NACL block, end-to-end (demo)](https://www.linkedin.com/feed/update/urn:li:activity:7479890093638361089/)**
+>
+> 👤 More projects: **[Naser Ronaghi — LinkedIn](https://www.linkedin.com/in/naser-ronaghi-52927177/details/projects/)**
 
 The recorded run shows: attacker nmap → Zeek capture → ML CRITICAL alert → Wazuh T1046 → n8n triage → Llama analysis → Slack approval → NACL deny entry created and confirmed by direct AWS query.
 
